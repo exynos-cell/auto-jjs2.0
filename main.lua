@@ -1,5 +1,5 @@
 
--- AutoJJs – versão compatível com Exército Brasileiro (flithy012)
+-- AutoJJs – versão com botão "Exclamação" e começando do 0 (compatível com Exército Brasileiro)
 
 repeat wait() until game:IsLoaded()
 wait(1.5)
@@ -16,7 +16,6 @@ gui.Parent = game:GetService("CoreGui")
 
 -- ======= ENVIO NO CHAT (compatível com Exército Brasileiro) =======
 local function getChatSender()
-    -- 1️⃣ Tenta sistema padrão
     local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
     if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
         return function(msg)
@@ -26,7 +25,6 @@ local function getChatSender()
         end
     end
 
-    -- 2️⃣ Tenta sistema novo
     local TextChatService = game:GetService("TextChatService")
     if TextChatService and TextChatService.ChatInputBarConfiguration then
         return function(msg)
@@ -36,13 +34,11 @@ local function getChatSender()
         end
     end
 
-    -- 3️⃣ Sistema customizado (Exército Brasileiro)
     return function(msg)
-        -- Simula envio local
         pcall(function()
             game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
                 Text = "[AutoJJs] " .. msg,
-                Color = Color3.fromRGB(255, 255, 255),
+                Color = Color3.fromRGB(255,255,255),
                 Font = Enum.Font.SourceSansBold,
                 TextSize = 18
             })
@@ -79,14 +75,14 @@ end
 
 -- ======= VARIÁVEIS =======
 local running, maxNum, delay, idx = false, 900, 1, 0
-local useUpper = false
+local formatMode = "grammar" -- "grammar" | "upper" | "exclaim"
 local jumpAfterSend = false
 local minimized = false
 
 -- ======= GUI =======
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0,260,0,340)
-frame.Position = UDim2.new(0.5,-130,0.5,-170)
+frame.Size = UDim2.new(0,260,0,370)
+frame.Position = UDim2.new(0.5,-130,0.5,-180)
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.Active = true
 frame.Draggable = true
@@ -165,21 +161,30 @@ progress.Font = Enum.Font.SourceSans
 progress.TextSize = 16
 progress.Text = "Progresso: 0 / 0"
 
+-- Botões de formatação
 local upperBtn = Instance.new("TextButton", container)
-upperBtn.Size = UDim2.new(0.48,0,0,30)
+upperBtn.Size = UDim2.new(0.31,0,0,30)
 upperBtn.Position = UDim2.new(0,10,0,210)
-upperBtn.Text = "Maiúsculas"
+upperBtn.Text = "MAIÚSCULAS"
 upperBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 upperBtn.TextColor3 = Color3.fromRGB(255,255,255)
 upperBtn.Font = Enum.Font.SourceSansBold
 
 local gramBtn = Instance.new("TextButton", container)
-gramBtn.Size = UDim2.new(0.48,0,0,30)
-gramBtn.Position = UDim2.new(0.52,0,0,210)
+gramBtn.Size = UDim2.new(0.31,0,0,30)
+gramBtn.Position = UDim2.new(0.34,0,0,210)
 gramBtn.Text = "Gramatical"
 gramBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 gramBtn.TextColor3 = Color3.fromRGB(255,255,255)
 gramBtn.Font = Enum.Font.SourceSansBold
+
+local exclBtn = Instance.new("TextButton", container)
+exclBtn.Size = UDim2.new(0.31,0,0,30)
+exclBtn.Position = UDim2.new(0.68,0,0,210)
+exclBtn.Text = "Exclamação"
+exclBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+exclBtn.TextColor3 = Color3.fromRGB(255,255,255)
+exclBtn.Font = Enum.Font.SourceSansBold
 
 local jumpBtn = Instance.new("TextButton", container)
 jumpBtn.Size = UDim2.new(1,-20,0,30)
@@ -195,15 +200,24 @@ local function toggleButton(btn, state)
 end
 
 upperBtn.MouseButton1Click:Connect(function()
-    useUpper = true
+    formatMode = "upper"
     toggleButton(upperBtn, true)
     toggleButton(gramBtn, false)
+    toggleButton(exclBtn, false)
 end)
 
 gramBtn.MouseButton1Click:Connect(function()
-    useUpper = false
+    formatMode = "grammar"
     toggleButton(upperBtn, false)
     toggleButton(gramBtn, true)
+    toggleButton(exclBtn, false)
+end)
+
+exclBtn.MouseButton1Click:Connect(function()
+    formatMode = "exclaim"
+    toggleButton(upperBtn, false)
+    toggleButton(gramBtn, false)
+    toggleButton(exclBtn, true)
 end)
 
 jumpBtn.MouseButton1Click:Connect(function()
@@ -216,41 +230,61 @@ minimizeBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     container.Visible = not minimized
     minimizeBtn.Text = minimized and "+" or "-"
-    frame.Size = minimized and UDim2.new(0,260,0,28) or UDim2.new(0,260,0,340)
+    frame.Size = minimized and UDim2.new(0,260,0,28) or UDim2.new(0,260,0,370)
 end)
 
 startBtn.MouseButton1Click:Connect(function()
     if running then return end
     running = true
     idx = 0
-    maxNum = tonumber(limitBox.Text) or 900
+    maxNum = tonumber(limitBox.Text)
+    if not maxNum then maxNum = 900 end
+    if maxNum < 0 then maxNum = 0 end
     delay = tonumber(delayBox.Text) or 1
     progress.Text = "Progresso: 0 / " .. maxNum
     spawn(function()
-        while running and idx < maxNum do
-            idx += 1
+        -- enviar do 0 até maxNum (inclusivo)
+        while running and idx <= maxNum do
             local msg = numberToWords(idx)
-            if useUpper then
+            if formatMode == "upper" then
                 msg = string.upper(msg)
-            else
-                msg = msg:sub(1,1):upper()..msg:sub(2).."."
+            elseif formatMode == "grammar" then
+                -- capitaliza primeira letra e adiciona ponto se não já terminar com pontuação
+                if #msg > 0 then
+                    msg = msg:sub(1,1):upper() .. msg:sub(2)
+                end
+                -- adiciona ponto final se não terminar com ., ! ou ?
+                local last = msg:sub(-1)
+                if last ~= "." and last ~= "!" and last ~= "?" then
+                    msg = msg .. "."
+                end
+            elseif formatMode == "exclaim" then
+                if #msg > 0 then
+                    msg = msg:sub(1,1):upper() .. msg:sub(2) .. " !"
+                else
+                    msg = " !"
+                end
             end
+
             pcall(function() sendChat(msg) end)
             progress.Text = "Progresso: " .. idx .. " / " .. maxNum
+
             if jumpAfterSend then
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("Humanoid") then
                     char.Humanoid.Jump = true
                 end
             end
+
+            idx = idx + 1
             wait(delay)
         end
         running = false
-        progress.Text = "Concluído: " .. idx .. " / " .. maxNum
+        progress.Text = "Concluído: " .. (idx-1) .. " / " .. maxNum
     end)
 end)
 
 stopBtn.MouseButton1Click:Connect(function()
     running = false
-    progress.Text = "Parado em: " .. idx .. " / " .. maxNum
-end)
+    progress.Text = "Parado em: " .. math.max(0, idx-1) .. " / " .. maxNum
+end)y
