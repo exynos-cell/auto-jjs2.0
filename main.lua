@@ -1,216 +1,143 @@
--- AutoJJs – Script atualizado com contador visual de progresso
+-- AutoJJs – versão compacta com painel centralizado, arraste e contador de progresso
 
--- ====== Configurações iniciais ======
+-- ======= CONFIGURAÇÕES INICIAIS =======
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
+-- Envio no chat
 local function getChatSender()
-    local success, mod = pcall(function()
-        local events = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-        if events and events:FindFirstChild("SayMessageRequest") then
-            return function(msg)
-                events.SayMessageRequest:FireServer(msg, "All")
-            end
+    local ok, sender = pcall(function()
+        local e = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+        if e and e:FindFirstChild("SayMessageRequest") then
+            return function(msg) e.SayMessageRequest:FireServer(msg, "All") end
         end
-        local TextChatService = game:GetService("TextChatService")
-        if TextChatService and TextChatService:FindFirstChild("SayMessage") then
-            return function(msg)
-                pcall(function() TextChatService.SayMessage:Fire(msg) end)
-            end
+        local tcs = game:GetService("TextChatService")
+        if tcs and tcs:FindFirstChild("SayMessage") then
+            return function(msg) pcall(function() tcs.SayMessage:Fire(msg) end) end
         end
-        return nil
     end)
-    if success and mod then return mod end
-    if ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") and ReplicatedStorage.DefaultChatSystemChatEvents:FindFirstChild("SayMessageRequest") then
-        local events = ReplicatedStorage.DefaultChatSystemChatEvents
-        return function(msg) pcall(function() events.SayMessageRequest:FireServer(msg, "All") end) end
-    end
-    return function(msg)
-        pcall(function() print("Tentativa de enviar chat: "..tostring(msg)) end)
-    end
+    return sender or function(m) print("CHAT:", m) end
 end
 
 local sendChat = getChatSender()
 
--- ====== Conversor de número ======
+-- ======= CONVERSOR DE NÚMERO =======
 local units = {"zero","um","dois","três","quatro","cinco","seis","sete","oito","nove",
-               "dez","onze","doze","treze","quatorze","quinze","dezesseis","dezessete","dezoito","dezenove"}
+"dez","onze","doze","treze","quatorze","quinze","dezesseis","dezessete","dezoito","dezenove"}
 local tens = {"","","vinte","trinta","quarenta","cinquenta","sessenta","setenta","oitenta","noventa"}
 local hundreds = {"","cento","duzentos","trezentos","quatrocentos","quinhentos","seiscentos","setecentos","oitocentos","novecentos"}
 
 local function numberToWords(n)
-    n = tonumber(n) or 0
-    if n < 0 then return "menos "..numberToWords(-n) end
-    if n < 20 then return units[n+1] end
-    if n < 100 then
-        local d = math.floor(n / 10)
-        local r = n % 10
-        if r == 0 then return tens[d+1] end
-        return tens[d+1] .. " e " .. units[r+1]
-    end
-    if n == 100 then return "cem" end
-    if n < 1000 then
-        local h = math.floor(n / 100)
-        local rem = n % 100
-        local prefix = hundreds[h+1]
-        if rem == 0 then return prefix end
-        return prefix .. " e " .. numberToWords(rem)
-    end
-    if n < 10000 then
-        local th = math.floor(n / 1000)
-        local rem = n % 1000
-        local prefix = (th == 1) and "mil" or (numberToWords(th) .. " mil")
-        if rem == 0 then return prefix end
-        if rem < 100 then
-            return prefix .. " e " .. numberToWords(rem)
-        else
-            return prefix .. " " .. numberToWords(rem)
-        end
-    end
-    return tostring(n)
+	n = tonumber(n) or 0
+	if n < 20 then return units[n+1]
+	elseif n < 100 then
+		local d, r = math.floor(n/10), n%10
+		return r==0 and tens[d+1] or tens[d+1].." e "..units[r+1]
+	elseif n == 100 then return "cem"
+	elseif n < 1000 then
+		local h, r = math.floor(n/100), n%100
+		return r==0 and hundreds[h+1] or hundreds[h+1].." e "..numberToWords(r)
+	elseif n < 10000 then
+		local th, r = math.floor(n/1000), n%1000
+		local prefix = (th==1) and "mil" or numberToWords(th).." mil"
+		if r==0 then return prefix end
+		return prefix.." "..numberToWords(r)
+	end
+	return tostring(n)
 end
 
--- ====== Estados ======
-local isRunning = false
-local sendUpper = false
-local sendGrammar = true
-local sendLower = false
-local jumpAfterSend = false
-local maxNumber = 50
-local delayBetween = 1.0
-local currentIndex = 0
+-- ======= VARIÁVEIS =======
+local running, maxNum, delay, idx = false, 50, 1, 0
 
--- ====== GUI ======
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AutoJJsGUI_"..tostring(math.random(1000,9999))
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
+-- ======= GUI =======
+local gui = Instance.new("ScreenGui", PlayerGui)
+gui.ResetOnSpawn = false
+gui.Name = "AutoJJs"
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 300, 0, 440)
-Frame.Position = UDim2.new(0.5, -150, 0.5, -220)
-Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-Frame.BorderSizePixel = 0
-Frame.Parent = ScreenGui
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0,260,0,300)
+frame.Position = UDim2.new(0.5,-130,0.5,-150)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Active = true
+frame.Draggable = true
+frame.BorderSizePixel = 0
 
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 36)
-TopBar.BackgroundColor3 = Color3.fromRGB(20,20,20)
-TopBar.Parent = Frame
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,28)
+title.BackgroundColor3 = Color3.fromRGB(20,20,20)
+title.Text = "AutoJJs"
+title.TextColor3 = Color3.fromRGB(230,230,230)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 20
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -10, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "AutoJJs"
-Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 20
-Title.TextColor3 = Color3.fromRGB(230,230,230)
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
+local inputLimit = Instance.new("TextBox", frame)
+inputLimit.Size = UDim2.new(1,-20,0,28)
+inputLimit.Position = UDim2.new(0,10,0,40)
+inputLimit.PlaceholderText = "Limite (padrão 50)"
+inputLimit.Text = ""
+inputLimit.BackgroundColor3 = Color3.fromRGB(50,50,50)
+inputLimit.TextColor3 = Color3.fromRGB(255,255,255)
+inputLimit.BorderSizePixel = 0
 
-local Container = Instance.new("ScrollingFrame")
-Container.Size = UDim2.new(1, 0, 1, -36)
-Container.Position = UDim2.new(0, 0, 0, 36)
-Container.BackgroundTransparency = 1
-Container.ScrollBarThickness = 6
-Container.Parent = Frame
+local inputDelay = Instance.new("TextBox", frame)
+inputDelay.Size = UDim2.new(1,-20,0,28)
+inputDelay.Position = UDim2.new(0,10,0,80)
+inputDelay.PlaceholderText = "Delay (padrão 1s)"
+inputDelay.Text = ""
+inputDelay.BackgroundColor3 = Color3.fromRGB(50,50,50)
+inputDelay.TextColor3 = Color3.fromRGB(255,255,255)
+inputDelay.BorderSizePixel = 0
 
-local Layout = Instance.new("UIListLayout")
-Layout.Parent = Container
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0, 8)
+local startBtn = Instance.new("TextButton", frame)
+startBtn.Size = UDim2.new(1,-20,0,30)
+startBtn.Position = UDim2.new(0,10,0,120)
+startBtn.Text = "Iniciar"
+startBtn.BackgroundColor3 = Color3.fromRGB(60,120,60)
+startBtn.TextColor3 = Color3.fromRGB(255,255,255)
+startBtn.Font = Enum.Font.SourceSansBold
 
-local function createLabel(text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -18, 0, 22)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.SourceSans
-    lbl.TextSize = 15
-    lbl.TextColor3 = Color3.fromRGB(220,220,220)
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = Container
-    return lbl
-end
+local stopBtn = Instance.new("TextButton", frame)
+stopBtn.Size = UDim2.new(1,-20,0,30)
+stopBtn.Position = UDim2.new(0,10,0,160)
+stopBtn.Text = "Parar"
+stopBtn.BackgroundColor3 = Color3.fromRGB(120,60,60)
+stopBtn.TextColor3 = Color3.fromRGB(255,255,255)
+stopBtn.Font = Enum.Font.SourceSansBold
 
-local function createButton(text, color)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -18, 0, 36)
-    btn.BackgroundColor3 = color or Color3.fromRGB(60,60,60)
-    btn.BorderSizePixel = 0
-    btn.Font = Enum.Font.SourceSansBold
-    btn.Text = text
-    btn.TextSize = 16
-    btn.TextColor3 = Color3.fromRGB(245,245,245)
-    btn.Parent = Container
-    return btn
-end
+local progress = Instance.new("TextLabel", frame)
+progress.Size = UDim2.new(1,-20,0,28)
+progress.Position = UDim2.new(0,10,0,200)
+progress.BackgroundTransparency = 1
+progress.TextColor3 = Color3.fromRGB(200,200,200)
+progress.Font = Enum.Font.SourceSans
+progress.TextSize = 16
+progress.Text = "Progresso: 0 / 0"
 
-createLabel("Limite máximo:")
-local LimitBox = Instance.new("TextBox")
-LimitBox.Size = UDim2.new(1, -18, 0, 34)
-LimitBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
-LimitBox.BorderSizePixel = 0
-LimitBox.Font = Enum.Font.SourceSans
-LimitBox.TextSize = 16
-LimitBox.TextColor3 = Color3.fromRGB(240,240,240)
-LimitBox.Text = tostring(maxNumber)
-LimitBox.ClearTextOnFocus = false
-LimitBox.Parent = Container
-
-createLabel("Delay (segundos):")
-local DelayBox = Instance.new("TextBox")
-DelayBox.Size = UDim2.new(1, -18, 0, 34)
-DelayBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
-DelayBox.BorderSizePixel = 0
-DelayBox.Font = Enum.Font.SourceSans
-DelayBox.TextSize = 16
-DelayBox.TextColor3 = Color3.fromRGB(240,240,240)
-DelayBox.Text = tostring(delayBetween)
-DelayBox.ClearTextOnFocus = false
-DelayBox.Parent = Container
-
-createLabel("Controles:")
-local StartBtn = createButton("Iniciar", Color3.fromRGB(60,120,60))
-local StopBtn = createButton("Parar", Color3.fromRGB(120,60,60))
-
--- === Contador visual ===
-local ProgressLabel = createLabel("Progresso: 0 / 0")
-
-local InfoLabel = createLabel("Painel pronto. Teste com limites pequenos.")
-
--- ====== Funções principais ======
-StartBtn.MouseButton1Click:Connect(function()
-    if isRunning then return end
-    local n = tonumber(LimitBox.Text) or maxNumber
-    local d = tonumber(DelayBox.Text) or delayBetween
-    maxNumber = math.max(1, math.floor(n))
-    delayBetween = math.max(0.05, tonumber(d))
-    currentIndex = 0
-    ProgressLabel.Text = "Progresso: 0 / " .. maxNumber
-    isRunning = true
-    spawn(function()
-        while isRunning and currentIndex < maxNumber do
-            currentIndex += 1
-            local msg = numberToWords(currentIndex)
-            if sendUpper then msg = string.upper(msg)
-            elseif sendLower then msg = string.lower(msg) end
-            pcall(function() sendChat(msg) end)
-            ProgressLabel.Text = "Progresso: " .. currentIndex .. " / " .. maxNumber
-            wait(delayBetween)
-        end
-        isRunning = false
-        ProgressLabel.Text = "Progresso: concluído (" .. currentIndex .. " / " .. maxNumber .. ")"
-    end)
+-- ======= LÓGICA =======
+startBtn.MouseButton1Click:Connect(function()
+	if running then return end
+	running = true
+	idx = 0
+	maxNum = tonumber(inputLimit.Text) or 50
+	delay = tonumber(inputDelay.Text) or 1
+	progress.Text = "Progresso: 0 / "..maxNum
+	spawn(function()
+		while running and idx < maxNum do
+			idx += 1
+			local msg = numberToWords(idx)
+			pcall(function() sendChat(msg) end)
+			progress.Text = "Progresso: "..idx.." / "..maxNum
+			wait(delay)
+		end
+		running = false
+		progress.Text = "Concluído: "..idx.." / "..maxNum
+	end)
 end)
 
-StopBtn.MouseButton1Click:Connect(function()
-    isRunning = false
-    ProgressLabel.Text = "Progresso: interrompido (" .. currentIndex .. " / " .. maxNumber .. ")"
+stopBtn.MouseButton1Click:Connect(function()
+	running = false
+	progress.Text = "Parado em: "..idx.." / "..maxNum
 end)
