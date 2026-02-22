@@ -1,13 +1,12 @@
--- AutoJJs – versão compacta com painel centralizado, arraste e contador de progresso
+-- AutoJJs – painel compacto com contador visual e arraste
 
--- ======= CONFIGURAÇÕES INICIAIS =======
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Envio no chat
+-- ======= CHAT =======
 local function getChatSender()
     local ok, sender = pcall(function()
         local e = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
@@ -50,7 +49,7 @@ local function numberToWords(n)
 end
 
 -- ======= VARIÁVEIS =======
-local running, maxNum, delay, idx = false, 50, 1, 0
+local running, maxNum, delay, idx = false, 900, 1, 0
 
 -- ======= GUI =======
 local gui = Instance.new("ScreenGui", PlayerGui)
@@ -58,38 +57,38 @@ gui.ResetOnSpawn = false
 gui.Name = "AutoJJs"
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0,260,0,300)
-frame.Position = UDim2.new(0.5,-130,0.5,-150)
+frame.Size = UDim2.new(0,260,0,280)
+frame.Position = UDim2.new(0.5,-130,0.5,-140)
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.Active = true
 frame.Draggable = true
 frame.BorderSizePixel = 0
 
 local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1,0,0,28)
+title.Size = UDim2.new(1,0,0,26)
 title.BackgroundColor3 = Color3.fromRGB(20,20,20)
 title.Text = "AutoJJs"
 title.TextColor3 = Color3.fromRGB(230,230,230)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 20
 
-local inputLimit = Instance.new("TextBox", frame)
-inputLimit.Size = UDim2.new(1,-20,0,28)
-inputLimit.Position = UDim2.new(0,10,0,40)
-inputLimit.PlaceholderText = "Limite (padrão 50)"
-inputLimit.Text = ""
-inputLimit.BackgroundColor3 = Color3.fromRGB(50,50,50)
-inputLimit.TextColor3 = Color3.fromRGB(255,255,255)
-inputLimit.BorderSizePixel = 0
+local limitBox = Instance.new("TextBox", frame)
+limitBox.Size = UDim2.new(1,-20,0,28)
+limitBox.Position = UDim2.new(0,10,0,40)
+limitBox.PlaceholderText = "Limite (padrão 900)"
+limitBox.Text = ""
+limitBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+limitBox.TextColor3 = Color3.fromRGB(255,255,255)
+limitBox.BorderSizePixel = 0
 
-local inputDelay = Instance.new("TextBox", frame)
-inputDelay.Size = UDim2.new(1,-20,0,28)
-inputDelay.Position = UDim2.new(0,10,0,80)
-inputDelay.PlaceholderText = "Delay (padrão 1s)"
-inputDelay.Text = ""
-inputDelay.BackgroundColor3 = Color3.fromRGB(50,50,50)
-inputDelay.TextColor3 = Color3.fromRGB(255,255,255)
-inputDelay.BorderSizePixel = 0
+local delayBox = Instance.new("TextBox", frame)
+delayBox.Size = UDim2.new(1,-20,0,28)
+delayBox.Position = UDim2.new(0,10,0,80)
+delayBox.PlaceholderText = "Delay (padrão 1s)"
+delayBox.Text = ""
+delayBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+delayBox.TextColor3 = Color3.fromRGB(255,255,255)
+delayBox.BorderSizePixel = 0
 
 local startBtn = Instance.new("TextButton", frame)
 startBtn.Size = UDim2.new(1,-20,0,30)
@@ -121,8 +120,8 @@ startBtn.MouseButton1Click:Connect(function()
 	if running then return end
 	running = true
 	idx = 0
-	maxNum = tonumber(inputLimit.Text) or 50
-	delay = tonumber(inputDelay.Text) or 1
+	maxNum = tonumber(limitBox.Text) or 900
+	delay = tonumber(delayBox.Text) or 1
 	progress.Text = "Progresso: 0 / "..maxNum
 	spawn(function()
 		while running and idx < maxNum do
