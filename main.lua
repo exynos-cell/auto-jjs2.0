@@ -1,48 +1,79 @@
--- AutoJJs – versão com botão "Exclamação" e começando do 0 (compatível com Exército Brasileiro)
+-- AutoJJs – versão mobile garantida (conta do 0 + botão Exclamação + visibilidade forçada)
 
-repeat wait() until game:IsLoaded()
-wait(1.5)
+repeat task.wait() until game:IsLoaded()
+task.wait(2)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 
--- ======= CRIA GUI NO COREGUI =======
-local gui = Instance.new("ScreenGui")
-gui.Name = "AutoJJs"
-gui.ResetOnSpawn = false
-gui.Parent = game:GetService("CoreGui")
+-- ======= CRIA GUI COM FALLBACK =======
+local gui
+for i = 1, 5 do
+	pcall(function()
+		gui = Instance.new("ScreenGui")
+		gui.Name = "AutoJJs"
+		gui.ResetOnSpawn = false
+		gui.IgnoreGuiInset = true
+		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		gui.Parent = game:GetService("CoreGui")
+	end)
+	if gui and gui.Parent then break end
+	task.wait(1)
+end
+
+if not gui or not gui.Parent then
+	gui = Instance.new("ScreenGui")
+	gui.Name = "AutoJJs"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- ======= GARANTE VISIBILIDADE =======
+task.spawn(function()
+	while task.wait(3) do
+		if not gui.Parent then
+			pcall(function() gui.Parent = game:GetService("CoreGui") end)
+			if not gui.Parent then
+				pcall(function() gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end)
+			end
+		end
+	end
+end)
 
 -- ======= ENVIO NO CHAT (compatível com Exército Brasileiro) =======
 local function getChatSender()
-    local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-    if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
-        return function(msg)
-            pcall(function()
-                chatEvents.SayMessageRequest:FireServer(msg, "All")
-            end)
-        end
-    end
+	local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+	if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
+		return function(msg)
+			pcall(function()
+				chatEvents.SayMessageRequest:FireServer(msg, "All")
+			end)
+		end
+	end
 
-    local TextChatService = game:GetService("TextChatService")
-    if TextChatService and TextChatService.ChatInputBarConfiguration then
-        return function(msg)
-            pcall(function()
-                TextChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(msg)
-            end)
-        end
-    end
+	local TextChatService = game:GetService("TextChatService")
+	if TextChatService and TextChatService.ChatInputBarConfiguration then
+		return function(msg)
+			pcall(function()
+				TextChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(msg)
+			end)
+		end
+	end
 
-    return function(msg)
-        pcall(function()
-            game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
-                Text = "[AutoJJs] " .. msg,
-                Color = Color3.fromRGB(255,255,255),
-                Font = Enum.Font.SourceSansBold,
-                TextSize = 18
-            })
-        end)
-    end
+	return function(msg)
+		pcall(function()
+			StarterGui:SetCore("ChatMakeSystemMessage", {
+				Text = "[AutoJJs] " .. msg,
+				Color = Color3.fromRGB(255,255,255),
+				Font = Enum.Font.SourceSansBold,
+				TextSize = 18
+			})
+		end)
+	end
 end
 
 local sendChat = getChatSender()
@@ -54,31 +85,30 @@ local tens = {"","","vinte","trinta","quarenta","cinquenta","sessenta","setenta"
 local hundreds = {"","cento","duzentos","trezentos","quatrocentos","quinhentos","seiscentos","setecentos","oitocentos","novecentos"}
 
 local function numberToWords(n)
-    n = tonumber(n) or 0
-    if n < 20 then return units[n+1]
-    elseif n < 100 then
-        local d, r = math.floor(n/10), n%10
-        return r==0 and tens[d+1] or tens[d+1].." e "..units[r+1]
-    elseif n == 100 then return "cem"
-    elseif n < 1000 then
-        local h, r = math.floor(n/100), n%100
-        return r==0 and hundreds[h+1] or hundreds[h+1].." e "..numberToWords(r)
-    elseif n < 10000 then
-        local th, r = math.floor(n/1000), n%1000
-        local prefix = (th==1) and "mil" or numberToWords(th).." mil"
-        if r==0 then return prefix end
-        return prefix.." "..numberToWords(r)
-    end
-    return tostring(n)
+	n = tonumber(n) or 0
+	if n < 20 then return units[n+1]
+	elseif n < 100 then
+		local d, r = math.floor(n/10), n%10
+		return r==0 and tens[d+1] or tens[d+1].." e "..units[r+1]
+	elseif n == 100 then return "cem"
+	elseif n < 1000 then
+		local h, r = math.floor(n/100), n%100
+		return r==0 and hundreds[h+1] or hundreds[h+1].." e "..numberToWords(r)
+	elseif n < 10000 then
+		local th, r = math.floor(n/1000), n%1000
+		local prefix = (th==1) and "mil" or numberToWords(th).." mil"
+		if r==0 then return prefix end
+		return prefix.." "..numberToWords(r)
+	end
+	return tostring(n)
 end
 
 -- ======= VARIÁVEIS =======
 local running, maxNum, delay, idx = false, 900, 1, 0
-local formatMode = "grammar" -- "grammar" | "upper" | "exclaim"
-local jumpAfterSend = false
-local minimized = false
+local formatMode = "grammar"
+local jumpAfterSend, minimized = false, false
 
--- ======= GUI =======
+-- ======= GUI ELEMENTOS =======
 local frame = Instance.new("Frame", gui)
 frame.Size = UDim2.new(0,260,0,370)
 frame.Position = UDim2.new(0.5,-130,0.5,-180)
@@ -124,7 +154,6 @@ limitBox.PlaceholderText = "Limite (padrão 900)"
 limitBox.Text = ""
 limitBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
 limitBox.TextColor3 = Color3.fromRGB(255,255,255)
-limitBox.BorderSizePixel = 0
 
 local delayBox = Instance.new("TextBox", container)
 delayBox.Size = UDim2.new(1,-20,0,28)
@@ -133,7 +162,6 @@ delayBox.PlaceholderText = "Delay (padrão 1s)"
 delayBox.Text = ""
 delayBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
 delayBox.TextColor3 = Color3.fromRGB(255,255,255)
-delayBox.BorderSizePixel = 0
 
 local startBtn = Instance.new("TextButton", container)
 startBtn.Size = UDim2.new(1,-20,0,30)
@@ -160,7 +188,7 @@ progress.Font = Enum.Font.SourceSans
 progress.TextSize = 16
 progress.Text = "Progresso: 0 / 0"
 
--- Botões de formatação
+-- Botões
 local upperBtn = Instance.new("TextButton", container)
 upperBtn.Size = UDim2.new(0.31,0,0,30)
 upperBtn.Position = UDim2.new(0,10,0,210)
@@ -195,95 +223,79 @@ jumpBtn.Font = Enum.Font.SourceSansBold
 
 -- ======= FUNÇÕES =======
 local function toggleButton(btn, state)
-    btn.BackgroundColor3 = state and Color3.fromRGB(70,150,70) or Color3.fromRGB(60,60,60)
+	btn.BackgroundColor3 = state and Color3.fromRGB(70,150,70) or Color3.fromRGB(60,60,60)
 end
 
 upperBtn.MouseButton1Click:Connect(function()
-    formatMode = "upper"
-    toggleButton(upperBtn, true)
-    toggleButton(gramBtn, false)
-    toggleButton(exclBtn, false)
+	formatMode = "upper"
+	toggleButton(upperBtn, true)
+	toggleButton(gramBtn, false)
+	toggleButton(exclBtn, false)
 end)
 
 gramBtn.MouseButton1Click:Connect(function()
-    formatMode = "grammar"
-    toggleButton(upperBtn, false)
-    toggleButton(gramBtn, true)
-    toggleButton(exclBtn, false)
+	formatMode = "grammar"
+	toggleButton(upperBtn, false)
+	toggleButton(gramBtn, true)
+	toggleButton(exclBtn, false)
 end)
 
 exclBtn.MouseButton1Click:Connect(function()
-    formatMode = "exclaim"
-    toggleButton(upperBtn, false)
-    toggleButton(gramBtn, false)
-    toggleButton(exclBtn, true)
+	formatMode = "exclaim"
+	toggleButton(upperBtn, false)
+	toggleButton(gramBtn, false)
+	toggleButton(exclBtn, true)
 end)
 
 jumpBtn.MouseButton1Click:Connect(function()
-    jumpAfterSend = not jumpAfterSend
-    toggleButton(jumpBtn, jumpAfterSend)
-    jumpBtn.Text = jumpAfterSend and "Pular: ON" or "Pular após enviar"
+	jumpAfterSend = not jumpAfterSend
+	toggleButton(jumpBtn, jumpAfterSend)
+	jumpBtn.Text = jumpAfterSend and "Pular: ON" or "Pular após enviar"
 end)
 
 minimizeBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    container.Visible = not minimized
-    minimizeBtn.Text = minimized and "+" or "-"
-    frame.Size = minimized and UDim2.new(0,260,0,28) or UDim2.new(0,260,0,370)
+	minimized = not minimized
+	container.Visible = not minimized
+	minimizeBtn.Text = minimized and "+" or "-"
+	frame.Size = minimized and UDim2.new(0,260,0,28) or UDim2.new(0,260,0,370)
 end)
 
 startBtn.MouseButton1Click:Connect(function()
-    if running then return end
-    running = true
-    idx = 0
-    maxNum = tonumber(limitBox.Text)
-    if not maxNum then maxNum = 900 end
-    if maxNum < 0 then maxNum = 0 end
-    delay = tonumber(delayBox.Text) or 1
-    progress.Text = "Progresso: 0 / " .. maxNum
-    spawn(function()
-        -- enviar do 0 até maxNum (inclusivo)
-        while running and idx <= maxNum do
-            local msg = numberToWords(idx)
-            if formatMode == "upper" then
-                msg = string.upper(msg)
-            elseif formatMode == "grammar" then
-                -- capitaliza primeira letra e adiciona ponto se não já terminar com pontuação
-                if #msg > 0 then
-                    msg = msg:sub(1,1):upper() .. msg:sub(2)
-                end
-                -- adiciona ponto final se não terminar com ., ! ou ?
-                local last = msg:sub(-1)
-                if last ~= "." and last ~= "!" and last ~= "?" then
-                    msg = msg .. "."
-                end
-            elseif formatMode == "exclaim" then
-                if #msg > 0 then
-                    msg = msg:sub(1,1):upper() .. msg:sub(2) .. " !"
-                else
-                    msg = " !"
-                end
-            end
+	if running then return end
+	running = true
+	idx = 0
+	maxNum = tonumber(limitBox.Text) or 900
+	delay = tonumber(delayBox.Text) or 1
+	progress.Text = "Progresso: 0 / " .. maxNum
+	task.spawn(function()
+		while running and idx <= maxNum do
+			local msg = numberToWords(idx)
+			if formatMode == "upper" then
+				msg = string.upper(msg)
+			elseif formatMode == "grammar" then
+				msg = msg:sub(1,1):upper()..msg:sub(2).."."
+			elseif formatMode == "exclaim" then
+				msg = msg:sub(1,1):upper()..msg:sub(2).." !"
+			end
+			pcall(function() sendChat(msg) end)
+			progress.Text = "Progresso: " .. idx .. " / " .. maxNum
 
-            pcall(function() sendChat(msg) end)
-            progress.Text = "Progresso: " .. idx .. " / " .. maxNum
+			if jumpAfterSend then
+				local char = LocalPlayer.Character
+				if char and char:FindFirstChild("Humanoid") then
+					char.Humanoid.Jump = true
+				end
+			end
 
-            if jumpAfterSend then
-                local char = LocalPlayer.Character
-                if char and char:FindFirstChild("Humanoid") then
-                    char.Humanoid.Jump = true
-                end
-            end
-
-            idx = idx + 1
-            wait(delay)
-        end
-        running = false
-        progress.Text = "Concluído: " .. (idx-1) .. " / " .. maxNum
-    end)
+			idx += 1
+			task.wait(delay)
+		end
+		running = false
+		progress.Text = "Concluído: " .. maxNum .. " / " .. maxNum
+	end)
 end)
 
 stopBtn.MouseButton1Click:Connect(function()
-    running = false
-    progress.Text = "Parado em: " .. math.max(0, idx-1) .. " / " .. maxNum
+	running = false
+	progress.Text = "Parado em: " .. idx .. " / " .. maxNum
 end)
