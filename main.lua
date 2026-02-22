@@ -1,3 +1,4 @@
+
 -- AutoJJs – Versão final com minimizar, formatação e contador de progresso
 
 local Players = game:GetService("Players")
