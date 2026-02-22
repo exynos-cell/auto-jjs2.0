@@ -1,4 +1,3 @@
-
 -- AutoJJs – versão com botão "Exclamação" e começando do 0 (compatível com Exército Brasileiro)
 
 repeat wait() until game:IsLoaded()
@@ -287,4 +286,4 @@ end)
 stopBtn.MouseButton1Click:Connect(function()
     running = false
     progress.Text = "Parado em: " .. math.max(0, idx-1) .. " / " .. maxNum
-end)y
+end)
