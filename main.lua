@@ -1,24 +1,53 @@
 
--- AutoJJs – Versão final com minimizar, formatação e contador de progresso
+-- AutoJJs – versão compatível com Exército Brasileiro (flithy012)
+
+repeat wait() until game:IsLoaded()
+wait(1.5)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- ======= ENVIO NO CHAT =======
+-- ======= CRIA GUI NO COREGUI =======
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoJJs"
+gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
+
+-- ======= ENVIO NO CHAT (compatível com Exército Brasileiro) =======
 local function getChatSender()
-    local ok, sender = pcall(function()
-        local e = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-        if e and e:FindFirstChild("SayMessageRequest") then
-            return function(msg) e.SayMessageRequest:FireServer(msg, "All") end
+    -- 1️⃣ Tenta sistema padrão
+    local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+    if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
+        return function(msg)
+            pcall(function()
+                chatEvents.SayMessageRequest:FireServer(msg, "All")
+            end)
         end
-        local tcs = game:GetService("TextChatService")
-        if tcs and tcs:FindFirstChild("SayMessage") then
-            return function(msg) pcall(function() tcs.SayMessage:Fire(msg) end) end
+    end
+
+    -- 2️⃣ Tenta sistema novo
+    local TextChatService = game:GetService("TextChatService")
+    if TextChatService and TextChatService.ChatInputBarConfiguration then
+        return function(msg)
+            pcall(function()
+                TextChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(msg)
+            end)
         end
-    end)
-    return sender or function(m) print("CHAT:", m) end
+    end
+
+    -- 3️⃣ Sistema customizado (Exército Brasileiro)
+    return function(msg)
+        -- Simula envio local
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
+                Text = "[AutoJJs] " .. msg,
+                Color = Color3.fromRGB(255, 255, 255),
+                Font = Enum.Font.SourceSansBold,
+                TextSize = 18
+            })
+        end)
+    end
 end
 
 local sendChat = getChatSender()
@@ -55,10 +84,6 @@ local jumpAfterSend = false
 local minimized = false
 
 -- ======= GUI =======
-local gui = Instance.new("ScreenGui", PlayerGui)
-gui.ResetOnSpawn = false
-gui.Name = "AutoJJs"
-
 local frame = Instance.new("Frame", gui)
 frame.Size = UDim2.new(0,260,0,340)
 frame.Position = UDim2.new(0.5,-130,0.5,-170)
